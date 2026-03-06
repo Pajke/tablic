@@ -253,6 +253,15 @@
       </div>
     </div>
 
+    <script>
+      console.log('[tablic] html loaded')
+      window.addEventListener('unhandledrejection', e => {
+        console.error('[tablic] unhandled rejection:', e.reason)
+      })
+      window.onerror = (msg, src, line, col, err) => {
+        console.error('[tablic] global error:', msg, err)
+      }
+    </script>
     <script type="module" src="/src/main.ts"></script>
   </body>
 </html>

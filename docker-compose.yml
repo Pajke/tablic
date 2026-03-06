@@ -1,0 +1,14 @@
+services:
+  tablic:
+    build: .
+    restart: unless-stopped
+    ports:
+      - "127.0.0.1:8080:8080"
+    volumes:
+      - tablic_data:/data
+    environment:
+      PORT: "8080"
+      DB_PATH: "/data/tablic.db"
+
+volumes:
+  tablic_data:

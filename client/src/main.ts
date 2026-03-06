@@ -4,16 +4,34 @@ import { createLocalState, applyServerMessage } from './state/client-state'
 import { GameScene } from './scenes/game'
 import type { ServerMessage } from './protocol'
 
-const app = new Application()
+console.log('[tablic] script start')
 
-await app.init({
-  resizeTo: window,
-  background: 0x1a472a,
-  antialias: true,
-})
+const app = new Application()
+console.log('[tablic] Application created')
+
+const initWatchdog = setTimeout(() => {
+  console.warn('[tablic] app.init still pending after 3s — likely WebGPU hang')
+}, 3000)
+
+try {
+  console.log('[tablic] calling app.init...')
+  await app.init({
+    preference: 'webgl',
+    resizeTo: window,
+    background: 0x1a472a,
+    antialias: true,
+  })
+  console.log('[tablic] app.init complete, renderer:', app.renderer?.type)
+} catch (e) {
+  console.error('[tablic] PixiJS init failed:', e)
+} finally {
+  clearTimeout(initWatchdog)
+}
+console.log('[tablic] appending canvas')
 document.body.appendChild(app.canvas)
 
 // --- State ---
+console.log('[tablic] setting up state and UI')
 let state = createLocalState()
 let gameScene: GameScene | null = null
 
@@ -243,13 +261,19 @@ function showGameOver(winnerName: string, players: import('./protocol').PublicPl
   gameoverOverlay.classList.remove('hidden')
 }
 
+console.log('[tablic] attaching button listeners')
+
 // --- Lobby buttons ---
 btnCreate.addEventListener('click', () => {
+  console.log('[tablic] create room clicked')
   const name = playerNameInput.value.trim()
   if (!name) { lobbyStatus.textContent = 'Enter your name first'; return }
   const maxPlayers = parseInt(maxPlayersSelect.value) as 2 | 4
   lobbyStatus.textContent = 'Connecting…'
-  ws.connect(buildWsUrlDefault(), () => {
+  const url = buildWsUrlDefault()
+  console.log('[tablic] connecting to', url)
+  ws.connect(url, () => {
+    console.log('[tablic] ws connected, sending CREATE_ROOM')
     ws.send({ type: 'CREATE_ROOM', playerName: name, maxPlayers })
   })
 })
