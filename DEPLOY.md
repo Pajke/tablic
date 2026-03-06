@@ -1,5 +1,7 @@
 # Deploying Tablić on Hetzner
 
+**Source code:** https://github.com/Pajke/tablic
+
 Self-hosted guide for a single VPS running Docker + Caddy.
 The Go binary serves the built PixiJS client as embedded static files, so there is only one process to manage.
 
@@ -72,7 +74,7 @@ apt install -y git nodejs npm golang-go
 
 # Clone the repo
 cd /opt
-git clone https://github.com/youruser/tablic.git
+git clone https://github.com/Pajke/tablic.git
 cd tablic
 
 # Build

@@ -2,6 +2,8 @@
 
 Go WebSocket server for the card game Tablić (a Serbian fishing card game).
 
+**Repository:** https://github.com/Pajke/tablic
+
 ## Stack
 
 | Layer | Technology |
