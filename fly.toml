@@ -1,0 +1,27 @@
+app = "tablic"
+primary_region = "ams"
+
+[build]
+
+[env]
+  PORT = "8080"
+  DB_PATH = "/data/tablic.db"
+
+[mounts]
+  source = "tablic_data"
+  destination = "/data"
+
+[[services]]
+  internal_port = 8080
+  protocol = "tcp"
+
+  [[services.http_checks]]
+    path = "/health"
+
+  [[services.ports]]
+    port = 80
+    handlers = ["http"]
+
+  [[services.ports]]
+    port = 443
+    handlers = ["tls", "http"]

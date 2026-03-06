@@ -1,0 +1,258 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Tablić</title>
+    <style>
+      * { margin: 0; padding: 0; box-sizing: border-box; }
+      body { background: #1a472a; overflow: hidden; }
+      canvas { display: block; }
+
+      /* Lobby overlay */
+      #lobby {
+        position: fixed; inset: 0;
+        display: flex; align-items: center; justify-content: center;
+        background: rgba(0,0,0,0.7);
+        z-index: 100;
+      }
+      #lobby.hidden { display: none; }
+      #lobby-card {
+        background: #fff;
+        border-radius: 12px;
+        padding: 2rem;
+        min-width: 320px;
+        display: flex;
+        flex-direction: column;
+        gap: 1rem;
+      }
+      #lobby-card h1 { font-family: serif; text-align: center; font-size: 2rem; }
+      #lobby-card input, #lobby-card select {
+        padding: 0.5rem; border: 1px solid #ccc; border-radius: 6px;
+        font-size: 1rem; width: 100%;
+      }
+      .btn-row { display: flex; gap: 0.5rem; }
+      #lobby-card button {
+        flex: 1; padding: 0.6rem 1rem;
+        border: none; border-radius: 6px;
+        background: #2d6a4f; color: #fff;
+        font-size: 1rem; cursor: pointer;
+      }
+      #lobby-card button:hover { background: #1b4332; }
+      #lobby-status { font-size: 0.9rem; color: #555; text-align: center; min-height: 1.2em; }
+
+      /* Score overlay */
+      #score-overlay {
+        position: fixed; inset: 0;
+        display: flex; align-items: center; justify-content: center;
+        background: rgba(0,0,0,0.6);
+        z-index: 50;
+      }
+      #score-overlay.hidden { display: none; }
+      #score-card {
+        background: #fff;
+        border-radius: 12px;
+        padding: 2rem;
+        min-width: 280px;
+        font-family: sans-serif;
+      }
+      #score-card h2 { margin-bottom: 1rem; text-align: center; }
+      #score-card table { width: 100%; border-collapse: collapse; }
+      #score-card td, #score-card th { padding: 0.3rem 0.6rem; text-align: right; }
+      #score-card th:first-child, #score-card td:first-child { text-align: left; }
+      #score-card button {
+        margin-top: 1rem; width: 100%;
+        padding: 0.5rem; border: none; border-radius: 6px;
+        background: #2d6a4f; color: #fff; font-size: 1rem; cursor: pointer;
+      }
+
+      /* Game-over overlay */
+      #gameover-overlay {
+        position: fixed; inset: 0;
+        display: flex; align-items: center; justify-content: center;
+        background: rgba(0,0,0,0.75);
+        z-index: 60;
+      }
+      #gameover-overlay.hidden { display: none; }
+      #gameover-card {
+        background: #fff;
+        border-radius: 12px;
+        padding: 2rem;
+        min-width: 300px;
+        font-family: sans-serif;
+        text-align: center;
+      }
+      #gameover-card h2 { margin-bottom: 0.25rem; font-size: 1.6rem; }
+      #gameover-card .winner-sub { margin-bottom: 1rem; color: #555; font-size: 0.95rem; }
+      #gameover-card table { width: 100%; border-collapse: collapse; margin-bottom: 1rem; }
+      #gameover-card td, #gameover-card th { padding: 0.3rem 0.6rem; text-align: right; }
+      #gameover-card th:first-child, #gameover-card td:first-child { text-align: left; }
+      #gameover-card button {
+        width: 100%; padding: 0.6rem;
+        border: none; border-radius: 6px;
+        background: #2d6a4f; color: #fff; font-size: 1rem; cursor: pointer;
+      }
+      #gameover-card button:hover { background: #1b4332; }
+
+      /* History overlay */
+      #history-overlay {
+        position: fixed; inset: 0;
+        display: flex; align-items: center; justify-content: center;
+        background: rgba(0,0,0,0.75);
+        z-index: 110;
+      }
+      #history-overlay.hidden { display: none; }
+      #history-card {
+        background: #fff;
+        border-radius: 12px;
+        padding: 2rem;
+        width: min(680px, 95vw);
+        max-height: 80vh;
+        display: flex;
+        flex-direction: column;
+        font-family: sans-serif;
+      }
+      #history-card h2 { margin-bottom: 1rem; font-size: 1.4rem; }
+      #history-list {
+        overflow-y: auto;
+        flex: 1;
+        display: flex;
+        flex-direction: column;
+        gap: 0.75rem;
+      }
+      .hist-game {
+        border: 1px solid #ddd;
+        border-radius: 8px;
+        overflow: hidden;
+      }
+      .hist-game summary {
+        padding: 0.6rem 1rem;
+        background: #f5f5f5;
+        cursor: pointer;
+        list-style: none;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        gap: 0.5rem;
+        font-size: 0.95rem;
+      }
+      .hist-game summary::-webkit-details-marker { display: none; }
+      .hist-game[open] summary { background: #e8f5e9; }
+      .hist-game summary .hist-meta { color: #555; font-size: 0.82rem; }
+      .hist-rounds {
+        padding: 0.75rem 1rem;
+        overflow-x: auto;
+      }
+      .hist-rounds table {
+        width: 100%;
+        border-collapse: collapse;
+        font-size: 0.875rem;
+      }
+      .hist-rounds th, .hist-rounds td {
+        padding: 0.25rem 0.5rem;
+        text-align: right;
+        border-bottom: 1px solid #eee;
+      }
+      .hist-rounds th:first-child, .hist-rounds td:first-child { text-align: left; }
+      .hist-rounds tr:last-child td { border-bottom: none; font-weight: bold; }
+      #history-card .hist-close {
+        margin-top: 1rem;
+        padding: 0.5rem;
+        border: none; border-radius: 6px;
+        background: #2d6a4f; color: #fff;
+        font-size: 1rem; cursor: pointer;
+        align-self: flex-end;
+        min-width: 100px;
+      }
+      #history-card .hist-close:hover { background: #1b4332; }
+      #history-empty { color: #888; text-align: center; padding: 2rem 0; }
+
+      /* Leave game button */
+      #btn-leave {
+        position: fixed; top: 10px; left: 12px;
+        padding: 0.25rem 0.6rem;
+        background: rgba(0,0,0,0.45); color: #ccc;
+        border: 1px solid rgba(255,255,255,0.2);
+        border-radius: 5px; font-size: 0.8rem; cursor: pointer;
+        z-index: 30;
+      }
+      #btn-leave:hover { background: rgba(180,30,30,0.7); color: #fff; }
+      #btn-leave.hidden { display: none; }
+    </style>
+  </head>
+  <body>
+    <!-- Lobby -->
+    <div id="lobby">
+      <div id="lobby-card">
+        <h1>Tablić</h1>
+        <input id="player-name" type="text" placeholder="Your name" maxlength="20" />
+        <input id="room-id" type="text" placeholder="Room ID (leave empty to create)" maxlength="20" />
+        <select id="max-players">
+          <option value="2">2 players</option>
+          <option value="4">4 players</option>
+        </select>
+        <div class="btn-row">
+          <button id="btn-create">Create Room</button>
+          <button id="btn-join">Join Room</button>
+        </div>
+        <div id="lobby-status"></div>
+        <button id="btn-history" style="background:#555;margin-top:0.25rem">Game History</button>
+      </div>
+    </div>
+
+    <!-- Score overlay -->
+    <div id="score-overlay" class="hidden">
+      <div id="score-card">
+        <h2 id="score-title">Round Over</h2>
+        <table>
+          <thead>
+            <tr>
+              <th>Player</th>
+              <th>Cards</th>
+              <th>Špil</th>
+              <th>Tabla</th>
+              <th>Total</th>
+            </tr>
+          </thead>
+          <tbody id="score-rows"></tbody>
+        </table>
+        <button id="score-continue">Continue</button>
+      </div>
+    </div>
+
+    <!-- Game-over overlay -->
+    <div id="gameover-overlay" class="hidden">
+      <div id="gameover-card">
+        <h2 id="gameover-title">Game Over</h2>
+        <div id="gameover-winner" class="winner-sub"></div>
+        <table>
+          <thead>
+            <tr>
+              <th>Player</th>
+              <th>Score</th>
+              <th>Tablas</th>
+            </tr>
+          </thead>
+          <tbody id="gameover-rows"></tbody>
+        </table>
+        <button id="gameover-btn">Return to Lobby</button>
+      </div>
+    </div>
+
+    <!-- Leave game button (visible during active game) -->
+    <button id="btn-leave" class="hidden">← Leave</button>
+
+    <!-- History overlay -->
+    <div id="history-overlay" class="hidden">
+      <div id="history-card">
+        <h2>Game History</h2>
+        <div id="history-list">
+          <div id="history-empty">No completed games yet.</div>
+        </div>
+        <button class="hist-close" id="btn-history-close">Close</button>
+      </div>
+    </div>
+
+    <script type="module" src="/src/main.ts"></script>
+  </body>
+</html>
