@@ -3,35 +3,36 @@ import { WsClient, buildWsUrlDefault } from './ws-client'
 import { createLocalState, applyServerMessage } from './state/client-state'
 import { GameScene } from './scenes/game'
 import type { ServerMessage } from './protocol'
+import { DEBUG } from './debug'
 
-console.log('[tablic] script start')
+if (DEBUG) console.log('[tablic] script start')
 
 const app = new Application()
-console.log('[tablic] Application created')
+if (DEBUG) console.log('[tablic] Application created')
 
 const initWatchdog = setTimeout(() => {
-  console.warn('[tablic] app.init still pending after 3s — likely WebGPU hang')
+  if (DEBUG) console.warn('[tablic] app.init still pending after 3s — likely WebGPU hang')
 }, 3000)
 
 try {
-  console.log('[tablic] calling app.init...')
+  if (DEBUG) console.log('[tablic] calling app.init...')
   await app.init({
     preference: 'webgl',
     resizeTo: window,
     background: 0x1a472a,
     antialias: true,
   })
-  console.log('[tablic] app.init complete, renderer:', app.renderer?.type)
+  if (DEBUG) console.log('[tablic] app.init complete, renderer:', app.renderer?.type)
 } catch (e) {
-  console.error('[tablic] PixiJS init failed:', e)
+  if (DEBUG) console.error('[tablic] PixiJS init failed:', e)
 } finally {
   clearTimeout(initWatchdog)
 }
-console.log('[tablic] appending canvas')
+if (DEBUG) console.log('[tablic] appending canvas')
 document.body.appendChild(app.canvas)
 
 // --- State ---
-console.log('[tablic] setting up state and UI')
+if (DEBUG) console.log('[tablic] setting up state and UI')
 let state = createLocalState()
 let gameScene: GameScene | null = null
 
@@ -198,7 +199,14 @@ function handleServerMessage(msg: ServerMessage) {
       break
 
     case 'ERROR':
-      lobbyStatus.textContent = `Error: ${msg.message}`
+      if (msg.code === 'SESSION_EXPIRED') {
+        ws.clearReconnectInfo()
+        lobby.classList.remove('hidden')
+        btnLeave.classList.add('hidden')
+        lobbyStatus.textContent = msg.message
+      } else {
+        lobbyStatus.textContent = `Error: ${msg.message}`
+      }
       break
   }
 }
@@ -261,19 +269,19 @@ function showGameOver(winnerName: string, players: import('./protocol').PublicPl
   gameoverOverlay.classList.remove('hidden')
 }
 
-console.log('[tablic] attaching button listeners')
+if (DEBUG) console.log('[tablic] attaching button listeners')
 
 // --- Lobby buttons ---
 btnCreate.addEventListener('click', () => {
-  console.log('[tablic] create room clicked')
+  if (DEBUG) console.log('[tablic] create room clicked')
   const name = playerNameInput.value.trim()
   if (!name) { lobbyStatus.textContent = 'Enter your name first'; return }
   const maxPlayers = parseInt(maxPlayersSelect.value) as 2 | 4
   lobbyStatus.textContent = 'Connecting…'
   const url = buildWsUrlDefault()
-  console.log('[tablic] connecting to', url)
+  if (DEBUG) console.log('[tablic] connecting to', url)
   ws.connect(url, () => {
-    console.log('[tablic] ws connected, sending CREATE_ROOM')
+    if (DEBUG) console.log('[tablic] ws connected, sending CREATE_ROOM')
     ws.send({ type: 'CREATE_ROOM', playerName: name, maxPlayers })
   })
 })

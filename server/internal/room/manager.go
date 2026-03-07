@@ -20,6 +20,9 @@ func NewManager(st *storage.Storage) *Manager {
 	return &Manager{rooms: make(map[string]*Room), storage: st}
 }
 
+// Storage returns the shared storage instance (may be nil).
+func (m *Manager) Storage() *storage.Storage { return m.storage }
+
 // Create creates a new room and returns it.
 func (m *Manager) Create(maxPlayers int) *Room {
 	id := generateID()

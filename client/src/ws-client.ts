@@ -1,6 +1,9 @@
 import type { ClientMessage, ServerMessage } from './protocol'
+import { DEBUG } from './debug'
 
 type MessageHandler = (msg: ServerMessage) => void
+
+const PING_INTERVAL_MS = 30_000
 
 export class WsClient {
   private ws: WebSocket | null = null
@@ -9,6 +12,7 @@ export class WsClient {
   private roomId: string | null = null
   private playerName: string | null = null
   private reconnectTimer: ReturnType<typeof setTimeout> | null = null
+  private pingTimer: ReturnType<typeof setInterval> | null = null
 
   constructor(onMessage: MessageHandler) {
     this.onMessage = onMessage
@@ -20,11 +24,12 @@ export class WsClient {
     }
     this.ws = new WebSocket(url)
     this.ws.addEventListener('open', () => {
-      console.log('[ws] connected')
+      if (DEBUG) console.log('[ws] connected')
       if (this.reconnectTimer) {
         clearTimeout(this.reconnectTimer)
         this.reconnectTimer = null
       }
+      this.startPing()
       onConnected?.()
     })
     this.ws.addEventListener('message', (ev) => {
@@ -36,7 +41,8 @@ export class WsClient {
       }
     })
     this.ws.addEventListener('close', () => {
-      console.log('[ws] disconnected')
+      if (DEBUG) console.log('[ws] disconnected')
+      this.stopPing()
       this.scheduleReconnect()
     })
     this.ws.addEventListener('error', (e) => {
@@ -48,7 +54,7 @@ export class WsClient {
     if (this.ws && this.ws.readyState === WebSocket.OPEN) {
       this.ws.send(JSON.stringify(msg))
     } else {
-      console.warn('[ws] cannot send — not connected', msg)
+      if (DEBUG) console.warn('[ws] cannot send — not connected', msg)
     }
   }
 
@@ -69,14 +75,26 @@ export class WsClient {
     }
   }
 
+  private startPing(): void {
+    this.stopPing()
+    this.pingTimer = setInterval(() => {
+      this.send({ type: 'PING' })
+    }, PING_INTERVAL_MS)
+  }
+
+  private stopPing(): void {
+    if (this.pingTimer) {
+      clearInterval(this.pingTimer)
+      this.pingTimer = null
+    }
+  }
+
   private scheduleReconnect(): void {
     if (!this.reconnectToken || !this.roomId) return
     this.reconnectTimer = setTimeout(() => {
-      console.log('[ws] attempting reconnect...')
+      if (DEBUG) console.log('[ws] attempting reconnect...')
       const url = this.ws?.url ?? buildWsUrl()
       this.connect(url)
-      // After connecting, send JOIN_ROOM with reconnect token
-      // The open event will fire before we send; use a one-time open listener
       const tryReconnect = () => {
         this.send({
           type: 'JOIN_ROOM',

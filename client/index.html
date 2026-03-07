@@ -254,7 +254,8 @@
     </div>
 
     <script>
-      console.log('[tablic] html loaded')
+      const _debug = new URLSearchParams(location.search).has('debug')
+      if (_debug) console.log('[tablic] html loaded')
       window.addEventListener('unhandledrejection', e => {
         console.error('[tablic] unhandled rejection:', e.reason)
       })

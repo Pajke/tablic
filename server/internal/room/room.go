@@ -84,6 +84,10 @@ func (r *Room) Join(name string) (string, string, int, error) {
 	r.names[playerID] = name
 	r.seatOrder = append(r.seatOrder, playerID)
 
+	if r.storage != nil {
+		r.storage.WriteReconnectToken(token, playerID, name, r.id, seatIndex)
+	}
+
 	return playerID, token, seatIndex, nil
 }
 
@@ -397,6 +401,7 @@ func (r *Room) advanceTurnOrDeal() {
 			r.id, winner.Name, winner.TotalScore)
 		if r.storage != nil {
 			r.storage.RecordGameEnd(r.id, winner.Name, finalPlayers)
+			r.storage.DeleteRoomTokens(r.id)
 		}
 		r.broadcast(protocol.MustMarshal(protocol.GameOverMsg{
 			Type:    "GAME_OVER",

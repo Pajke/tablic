@@ -11,6 +11,14 @@ import (
 )
 
 const schema = `
+CREATE TABLE IF NOT EXISTS reconnect_tokens (
+  token       TEXT PRIMARY KEY,
+  player_id   TEXT NOT NULL,
+  player_name TEXT NOT NULL,
+  room_id     TEXT NOT NULL,
+  seat_index  INTEGER NOT NULL,
+  expires_at  DATETIME NOT NULL
+);
 CREATE TABLE IF NOT EXISTS games (
   id          TEXT PRIMARY KEY,
   room_id     TEXT NOT NULL,
@@ -53,7 +61,56 @@ func Open(path string) (*Storage, error) {
 		db.Close()
 		return nil, err
 	}
-	return &Storage{db: db}, nil
+	s := &Storage{db: db}
+	s.cleanExpiredTokens()
+	return s, nil
+}
+
+// TokenRecord holds a persisted reconnect token.
+type TokenRecord struct {
+	PlayerID   string
+	PlayerName string
+	RoomID     string
+	SeatIndex  int
+}
+
+// WriteReconnectToken persists a reconnect token with a 24-hour TTL.
+func (s *Storage) WriteReconnectToken(token, playerID, playerName, roomID string, seatIndex int) {
+	_, err := s.db.Exec(
+		`INSERT OR REPLACE INTO reconnect_tokens (token, player_id, player_name, room_id, seat_index, expires_at)
+		 VALUES (?, ?, ?, ?, ?, ?)`,
+		token, playerID, playerName, roomID, seatIndex, time.Now().UTC().Add(24*time.Hour),
+	)
+	if err != nil {
+		log.Printf("[storage] WriteReconnectToken: %v", err)
+	}
+}
+
+// GetReconnectToken looks up a token. Returns nil if not found or expired.
+func (s *Storage) GetReconnectToken(token string) *TokenRecord {
+	row := s.db.QueryRow(
+		`SELECT player_id, player_name, room_id, seat_index
+		 FROM reconnect_tokens WHERE token = ? AND expires_at > ?`,
+		token, time.Now().UTC(),
+	)
+	var t TokenRecord
+	if err := row.Scan(&t.PlayerID, &t.PlayerName, &t.RoomID, &t.SeatIndex); err != nil {
+		return nil
+	}
+	return &t
+}
+
+// DeleteRoomTokens removes all tokens for a given room (call on game over).
+func (s *Storage) DeleteRoomTokens(roomID string) {
+	if _, err := s.db.Exec(`DELETE FROM reconnect_tokens WHERE room_id = ?`, roomID); err != nil {
+		log.Printf("[storage] DeleteRoomTokens: %v", err)
+	}
+}
+
+func (s *Storage) cleanExpiredTokens() {
+	if _, err := s.db.Exec(`DELETE FROM reconnect_tokens WHERE expires_at <= ?`, time.Now().UTC()); err != nil {
+		log.Printf("[storage] cleanExpiredTokens: %v", err)
+	}
 }
 
 // RecordGameStart inserts a new game row and its players.

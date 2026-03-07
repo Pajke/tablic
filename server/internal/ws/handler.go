@@ -97,6 +97,15 @@ func (h *Handler) handshake(conn *websocket.Conn) (*room.Room, string, error) {
 		m := msg.(protocol.JoinRoomMsg)
 		r, getErr := h.manager.Get(m.RoomID)
 		if getErr != nil {
+			// If a reconnect token is known to the DB but the room is gone (server restarted),
+			// send a clear SESSION_EXPIRED error so the client can reset to lobby.
+			if m.ReconnectToken != "" {
+				if st := h.manager.Storage(); st != nil && st.GetReconnectToken(m.ReconnectToken) != nil {
+					log.Printf("[ws] RECONNECT: room %s gone (server restarted?), token valid for player=%q", m.RoomID, m.PlayerName)
+					writeError(conn, "SESSION_EXPIRED", "Game session ended — please start a new game")
+					return nil, "", getErr
+				}
+			}
 			log.Printf("[ws] JOIN_ROOM: room %s not found for player=%q", m.RoomID, m.PlayerName)
 			writeError(conn, "ROOM_NOT_FOUND", getErr.Error())
 			return nil, "", getErr
