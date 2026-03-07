@@ -10,15 +10,17 @@ import (
 // --- Client → Server messages ---
 
 type CreateRoomMsg struct {
-	Type       string `json:"type"`
-	PlayerName string `json:"playerName"`
-	MaxPlayers int    `json:"maxPlayers"` // 2 or 4
+	Type        string `json:"type"`
+	PlayerName  string `json:"playerName"`
+	MaxPlayers  int    `json:"maxPlayers"` // 2 or 4
+	AvatarIndex int    `json:"avatarIndex"` // 1–6
 }
 
 type JoinRoomMsg struct {
 	Type           string `json:"type"`
 	RoomID         string `json:"roomId"`
 	PlayerName     string `json:"playerName"`
+	AvatarIndex    int    `json:"avatarIndex"` // 1–6
 	ReconnectToken string `json:"reconnectToken,omitempty"`
 }
 

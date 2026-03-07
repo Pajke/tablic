@@ -27,15 +27,16 @@ type playerConn struct {
 
 // Room is an authoritative game room.
 type Room struct {
-	mu         sync.Mutex
-	id         string
-	maxPlayers int
-	state      *game.GameState
-	conns      map[string]*playerConn // playerID → conn
-	tokens     map[string]string      // playerID → reconnect token
-	names      map[string]string      // playerID → display name
-	seatOrder  []string               // playerIDs in join order → deterministic seat indices
-	storage    *storage.Storage       // may be nil
+	mu           sync.Mutex
+	id           string
+	maxPlayers   int
+	state        *game.GameState
+	conns        map[string]*playerConn // playerID → conn
+	tokens       map[string]string      // playerID → reconnect token
+	names        map[string]string      // playerID → display name
+	avatarIndexes map[string]int        // playerID → avatar index (1–6)
+	seatOrder    []string               // playerIDs in join order → deterministic seat indices
+	storage      *storage.Storage       // may be nil
 
 	// pendingCapture holds options waiting for CHOOSE_CAPTURE from the current player.
 	pendingCapture []game.CaptureOption
@@ -47,12 +48,13 @@ type Room struct {
 
 func newRoom(id string, maxPlayers int, st *storage.Storage) *Room {
 	return &Room{
-		id:         id,
-		maxPlayers: maxPlayers,
-		conns:      make(map[string]*playerConn),
-		tokens:     make(map[string]string),
-		names:      make(map[string]string),
-		storage:    st,
+		id:            id,
+		maxPlayers:    maxPlayers,
+		conns:         make(map[string]*playerConn),
+		tokens:        make(map[string]string),
+		names:         make(map[string]string),
+		avatarIndexes: make(map[string]int),
+		storage:       st,
 	}
 }
 
@@ -60,7 +62,7 @@ func (r *Room) ID() string { return r.id }
 
 // Join adds a player to the room before the game starts.
 // Returns playerID, reconnect token, seat index, or error if full.
-func (r *Room) Join(name string) (string, string, int, error) {
+func (r *Room) Join(name string, avatarIndex int) (string, string, int, error) {
 	r.mu.Lock()
 	defer r.mu.Unlock()
 
@@ -75,6 +77,10 @@ func (r *Room) Join(name string) (string, string, int, error) {
 	token := generateID()
 	seatIndex := len(r.conns)
 
+	if avatarIndex < 1 || avatarIndex > 6 {
+		avatarIndex = 1
+	}
+
 	r.conns[playerID] = &playerConn{
 		playerID: playerID,
 		writeCh:  make(chan []byte, writeChannelSize),
@@ -82,6 +88,7 @@ func (r *Room) Join(name string) (string, string, int, error) {
 	}
 	r.tokens[playerID] = token
 	r.names[playerID] = name
+	r.avatarIndexes[playerID] = avatarIndex
 	r.seatOrder = append(r.seatOrder, playerID)
 
 	if r.storage != nil {
@@ -153,8 +160,9 @@ func (r *Room) StartGame() error {
 	players := make([]game.Player, 0, len(r.seatOrder))
 	for _, id := range r.seatOrder {
 		players = append(players, game.Player{
-			ID:   id,
-			Name: r.names[id],
+			ID:          id,
+			Name:        r.names[id],
+			AvatarIndex: r.avatarIndexes[id],
 		})
 	}
 

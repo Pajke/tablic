@@ -1,9 +1,19 @@
-import { Application, Container, Text, TextStyle } from 'pixi.js'
+import { Application, Container, Sprite, Text, TextStyle, Assets } from 'pixi.js'
 import { HandZone } from '../components/hand-zone'
 import { TableZone } from '../components/table-zone'
 import type { LocalState } from '../state/client-state'
-import type { ServerMessage } from '../protocol'
+import type { ServerMessage, PublicPlayer } from '../protocol'
 import type { WsClient } from '../ws-client'
+
+const AVATAR_SIZE = 40
+const AVATAR_MARGIN = 8
+
+interface PlayerSlot {
+  container: Container
+  avatar: Sprite
+  nameText: Text
+  scoreText: Text
+}
 
 export class GameScene extends Container {
   private handZone: HandZone
@@ -12,6 +22,7 @@ export class GameScene extends Container {
   private scoreText: Text
   private ws: WsClient
   private app: Application
+  private playerSlots: PlayerSlot[] = []
 
   constructor(app: Application, ws: WsClient) {
     super()
@@ -40,7 +51,7 @@ export class GameScene extends Container {
     this.statusText.position.set(W / 2, 16)
     this.addChild(this.statusText)
 
-    // Score text — top right
+    // Score text — top right (fallback / team mode)
     this.scoreText = new Text({
       text: '',
       style: new TextStyle({ fontFamily: 'sans-serif', fontSize: 14, fill: 0xdddddd }),
@@ -50,14 +61,78 @@ export class GameScene extends Container {
     this.addChild(this.scoreText)
   }
 
+  private async buildPlayerSlots(players: PublicPlayer[]) {
+    // Remove old slots
+    for (const slot of this.playerSlots) this.removeChild(slot.container)
+    this.playerSlots = []
+
+    const slotHeight = AVATAR_SIZE + AVATAR_MARGIN
+    const startY = 60
+
+    for (let i = 0; i < players.length; i++) {
+      const p = players[i]
+      const container = new Container()
+      container.position.set(8, startY + i * slotHeight)
+
+      // Avatar sprite
+      const url = `/avatars/${p.avatarIndex || 1}.png`
+      let texture
+      try {
+        texture = await Assets.load(url)
+      } catch {
+        texture = null
+      }
+      const avatar = texture ? new Sprite(texture) : new Sprite()
+      avatar.width = AVATAR_SIZE
+      avatar.height = AVATAR_SIZE
+      avatar.roundPixels = true
+      container.addChild(avatar)
+
+      // Name text
+      const nameText = new Text({
+        text: p.name,
+        style: new TextStyle({ fontFamily: 'sans-serif', fontSize: 13, fill: 0xffffff }),
+      })
+      nameText.position.set(AVATAR_SIZE + 6, 2)
+      container.addChild(nameText)
+
+      // Score text
+      const scoreText = new Text({
+        text: '0',
+        style: new TextStyle({ fontFamily: 'sans-serif', fontSize: 12, fill: 0xdddddd }),
+      })
+      scoreText.position.set(AVATAR_SIZE + 6, 18)
+      container.addChild(scoreText)
+
+      this.addChild(container)
+      this.playerSlots.push({ container, avatar, nameText, scoreText })
+    }
+  }
+
+  private updateSlotScores(state: LocalState) {
+    const gs = state.gameState
+    if (!gs) return
+    for (let i = 0; i < this.playerSlots.length && i < gs.players.length; i++) {
+      const p = gs.players[i]
+      const t = state.playerTablas[p.id] ?? 0
+      this.playerSlots[i].scoreText.text = t > 0 ? `${p.totalScore} pts  T:${t}` : `${p.totalScore} pts`
+    }
+  }
+
   /** Sync the scene to the current local state. Called after every server message. */
   sync(state: LocalState, prevMsg: ServerMessage | null) {
     const gs = state.gameState
     if (!gs) return
 
-    const myPlayer = gs.players.find((p) => p.id === state.myPlayerId)
     const currentPlayer = gs.players[gs.currentPlayerIndex]
     const isMyTurn = currentPlayer?.id === state.myPlayerId
+
+    // Build player slots once on game start
+    if (prevMsg?.type === 'GAME_STARTED') {
+      this.buildPlayerSlots(gs.players)
+      // In team mode, keep scoreText for team summary; otherwise hide it
+      this.scoreText.text = ''
+    }
 
     // Status line
     if (gs.phase === 'game_over') {
@@ -70,7 +145,7 @@ export class GameScene extends Container {
       this.statusText.text = `${currentPlayer?.name ?? '?'}'s turn`
     }
 
-    // Score line
+    // Team mode: show team scores in top-right text; individual mode: use player slots
     if (gs.teamMode) {
       const teamLabels = ['A', 'B']
       this.scoreText.text = [0, 1]
@@ -84,14 +159,10 @@ export class GameScene extends Container {
             : `${teamLabels[teamId]}(${names}): ${score}`
         })
         .join('  |  ')
-    } else {
-      this.scoreText.text = gs.players
-        .map((p) => {
-          const t = state.playerTablas[p.id] ?? 0
-          return t > 0 ? `${p.name}: ${p.totalScore} (T:${t})` : `${p.name}: ${p.totalScore}`
-        })
-        .join('  |  ')
     }
+
+    // Update per-player score labels in the left sidebar
+    this.updateSlotScores(state)
 
     // Sync table cards on game start or reconnect
     if (prevMsg?.type === 'GAME_STARTED') {

@@ -48,13 +48,14 @@ const (
 
 // Player holds state for a single player.
 type Player struct {
-	ID         string `json:"id"`
-	Name       string `json:"name"`
-	SeatIndex  int    `json:"seatIndex"`
-	Hand       []Card `json:"-"`           // never sent to other players
-	Captured   []Card `json:"captured"`
-	Tablas     int    `json:"tablas"`
-	TotalScore int    `json:"totalScore"`
+	ID          string `json:"id"`
+	Name        string `json:"name"`
+	SeatIndex   int    `json:"seatIndex"`
+	AvatarIndex int    `json:"avatarIndex"` // 1–6
+	Hand        []Card `json:"-"`           // never sent to other players
+	Captured    []Card `json:"captured"`
+	Tablas      int    `json:"tablas"`
+	TotalScore  int    `json:"totalScore"`
 }
 
 // GameState is the authoritative server-side game state.
@@ -93,21 +94,23 @@ type RoundScore struct {
 
 // PublicPlayer is a sanitized player view sent to all clients (no Hand).
 type PublicPlayer struct {
-	ID         string `json:"id"`
-	Name       string `json:"name"`
-	SeatIndex  int    `json:"seatIndex"`
-	TotalScore int    `json:"totalScore"`
-	Tablas     int    `json:"tablas"`
+	ID          string `json:"id"`
+	Name        string `json:"name"`
+	SeatIndex   int    `json:"seatIndex"`
+	AvatarIndex int    `json:"avatarIndex"` // 1–6
+	TotalScore  int    `json:"totalScore"`
+	Tablas      int    `json:"tablas"`
 }
 
 // ToPublic converts a Player to a PublicPlayer (no hand).
 func (p Player) ToPublic() PublicPlayer {
 	return PublicPlayer{
-		ID:         p.ID,
-		Name:       p.Name,
-		SeatIndex:  p.SeatIndex,
-		TotalScore: p.TotalScore,
-		Tablas:     p.Tablas,
+		ID:          p.ID,
+		Name:        p.Name,
+		SeatIndex:   p.SeatIndex,
+		AvatarIndex: p.AvatarIndex,
+		TotalScore:  p.TotalScore,
+		Tablas:      p.Tablas,
 	}
 }
 

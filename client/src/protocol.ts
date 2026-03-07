@@ -18,6 +18,7 @@ export interface PublicPlayer {
   id: string
   name: string
   seatIndex: number
+  avatarIndex: number // 1–6
   totalScore: number
   tablas: number
 }
@@ -50,12 +51,14 @@ export interface CreateRoomMsg {
   type: 'CREATE_ROOM'
   playerName: string
   maxPlayers: 2 | 4
+  avatarIndex: number // 1–6
 }
 
 export interface JoinRoomMsg {
   type: 'JOIN_ROOM'
   roomId: string
   playerName: string
+  avatarIndex: number // 1–6
   reconnectToken?: string
 }
 

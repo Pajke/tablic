@@ -45,6 +45,16 @@ const maxPlayersSelect = document.getElementById('max-players') as HTMLSelectEle
 const btnCreate = document.getElementById('btn-create')!
 const btnJoin = document.getElementById('btn-join')!
 
+// --- Avatar picker ---
+let selectedAvatar = 1
+document.querySelectorAll<HTMLElement>('.avatar-opt').forEach((el) => {
+  el.addEventListener('click', () => {
+    document.querySelectorAll('.avatar-opt').forEach((e) => e.classList.remove('selected'))
+    el.classList.add('selected')
+    selectedAvatar = parseInt(el.dataset.avatar ?? '1')
+  })
+})
+
 // --- Score overlay ---
 const scoreOverlay = document.getElementById('score-overlay')!
 const scoreTitle = document.getElementById('score-title')!
@@ -282,7 +292,7 @@ btnCreate.addEventListener('click', () => {
   if (DEBUG) console.log('[tablic] connecting to', url)
   ws.connect(url, () => {
     if (DEBUG) console.log('[tablic] ws connected, sending CREATE_ROOM')
-    ws.send({ type: 'CREATE_ROOM', playerName: name, maxPlayers })
+    ws.send({ type: 'CREATE_ROOM', playerName: name, maxPlayers, avatarIndex: selectedAvatar })
   })
 })
 
@@ -293,6 +303,6 @@ btnJoin.addEventListener('click', () => {
   if (!roomId) { lobbyStatus.textContent = 'Enter a room ID to join'; return }
   lobbyStatus.textContent = 'Connecting…'
   ws.connect(buildWsUrlDefault(), () => {
-    ws.send({ type: 'JOIN_ROOM', roomId, playerName: name })
+    ws.send({ type: 'JOIN_ROOM', roomId, playerName: name, avatarIndex: selectedAvatar })
   })
 })

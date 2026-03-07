@@ -80,7 +80,7 @@ func (h *Handler) handshake(conn *websocket.Conn) (*room.Room, string, error) {
 			return nil, "", errBadHandshake
 		}
 		rm = h.manager.Create(m.MaxPlayers)
-		pid, token, seat, joinErr := rm.Join(m.PlayerName)
+		pid, token, seat, joinErr := rm.Join(m.PlayerName, m.AvatarIndex)
 		if joinErr != nil {
 			writeError(conn, "JOIN_ERROR", joinErr.Error())
 			return nil, "", joinErr
@@ -139,7 +139,7 @@ func (h *Handler) handshake(conn *websocket.Conn) (*room.Room, string, error) {
 			return rm, playerID, nil
 		}
 
-		pid, token, seat, joinErr := rm.Join(m.PlayerName)
+		pid, token, seat, joinErr := rm.Join(m.PlayerName, m.AvatarIndex)
 		if joinErr != nil {
 			log.Printf("[ws] JOIN_ROOM: player=%q failed to join room=%s: %v", m.PlayerName, m.RoomID, joinErr)
 			writeError(conn, "JOIN_ERROR", joinErr.Error())

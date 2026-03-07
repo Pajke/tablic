@@ -80,7 +80,7 @@ func setupPlayingRoom() (*Room, []string) {
 
 func TestRoom_Join_AddsPlayerWithCorrectSeat(t *testing.T) {
 	r := newRoom("test", 2, nil)
-	id, token, seat, err := r.Join("Alice")
+	id, token, seat, err := r.Join("Alice", 1)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -90,7 +90,7 @@ func TestRoom_Join_AddsPlayerWithCorrectSeat(t *testing.T) {
 	if seat != 0 {
 		t.Errorf("first player: want seat 0, got %d", seat)
 	}
-	_, _, seat2, _ := r.Join("Bob")
+	_, _, seat2, _ := r.Join("Bob", 1)
 	if seat2 != 1 {
 		t.Errorf("second player: want seat 1, got %d", seat2)
 	}
@@ -98,9 +98,9 @@ func TestRoom_Join_AddsPlayerWithCorrectSeat(t *testing.T) {
 
 func TestRoom_Join_RoomFull_ReturnsError(t *testing.T) {
 	r := newRoom("test", 2, nil)
-	r.Join("Alice") //nolint:errcheck
-	r.Join("Bob")   //nolint:errcheck
-	_, _, _, err := r.Join("Charlie")
+	r.Join("Alice", 1) //nolint:errcheck
+	r.Join("Bob", 1)   //nolint:errcheck
+	_, _, _, err := r.Join("Charlie", 1)
 	if err == nil {
 		t.Error("expected error joining a full room")
 	}
@@ -112,7 +112,7 @@ func TestRoom_Join_AfterGameStarted_ReturnsError(t *testing.T) {
 		{ID: ids[0], Name: "Player1"},
 		{ID: ids[1], Name: "Player2"},
 	}, "test")
-	_, _, _, err := r.Join("LatePlayer")
+	_, _, _, err := r.Join("LatePlayer", 1)
 	if err == nil {
 		t.Error("expected error joining after game has started")
 	}
