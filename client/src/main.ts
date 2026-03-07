@@ -289,6 +289,7 @@ function handleServerMessage(msg: ServerMessage) {
     case 'GAME_STARTED':
       hideLobby()
       ensureGameScene()
+      scoreOverlay.classList.add('hidden')
       gameTopBar.classList.add('visible')
       roomCodeBar.classList.remove('hidden')
       document.title = 'Tablić'

@@ -1,9 +1,9 @@
 import { Container, Graphics, Text, TextStyle } from 'pixi.js'
 import type { Card } from '../protocol'
 
-export const CARD_WIDTH = 70
-export const CARD_HEIGHT = 100
-export const CARD_RADIUS = 8
+export const CARD_WIDTH = 82
+export const CARD_HEIGHT = 116
+export const CARD_RADIUS = 9
 
 const SUIT_SYMBOLS: Record<string, string> = {
   clubs: '♣',
@@ -52,7 +52,7 @@ export class CardSprite extends Container {
 
     const rankStyle = new TextStyle({
       fontFamily: 'serif',
-      fontSize: 16,
+      fontSize: 19,
       fill: color,
       fontWeight: 'bold',
     })
@@ -62,7 +62,7 @@ export class CardSprite extends Container {
 
     const suitStyle = new TextStyle({
       fontFamily: 'serif',
-      fontSize: 22,
+      fontSize: 28,
       fill: color,
     })
     const suitText = new Text({ text: symbol, style: suitStyle })

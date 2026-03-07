@@ -38,28 +38,30 @@ export class TableZone extends Container {
 
     // Start above target, invisible
     sprite.x = targetX
-    sprite.y = targetY - 50
+    sprite.y = targetY - 80
     sprite.alpha = 0
+    sprite.scale.set(0.7)
 
     this.sprites.set(card.id, sprite)
     this.addChild(sprite)
 
-    // layout() animates all sprites to their positions;
-    // for this new sprite: (targetX, targetY-50) → (targetX, targetY)
     this.layout()
-    gsap.to(sprite, { alpha: 1, duration: 0.3, ease: 'power2.out' })
+    gsap.to(sprite, { alpha: 1, scaleX: 1, scaleY: 1, duration: 0.3, ease: 'back.out(1.3)' })
   }
 
-  /** Remove cards from the table (CAPTURE_MADE). */
+  /** Remove cards from the table (CAPTURE_MADE). Captured cards flash and fly away. */
   removeCards(cardIds: string[]) {
-    for (const id of cardIds) {
+    for (const [i, id] of cardIds.entries()) {
       const sprite = this.sprites.get(id)
       if (!sprite) continue
       this.sprites.delete(id)
-      gsap.to(sprite, {
-        alpha: 0, y: sprite.y + 30, duration: 0.25,
-        onComplete: () => { this.removeChild(sprite); sprite.destroy() },
-      })
+      const delay = i * 0.04
+      gsap.timeline({ delay })
+        .to(sprite, { scaleX: 1.25, scaleY: 1.25, duration: 0.1, ease: 'power2.out' })
+        .to(sprite, {
+          scaleX: 0.5, scaleY: 0.5, alpha: 0, y: sprite.y - 50, duration: 0.3, ease: 'power2.in',
+          onComplete: () => { this.removeChild(sprite); sprite.destroy() },
+        })
     }
     this.layout()
   }

@@ -32,14 +32,14 @@ export class GameScene extends Container {
     const W = app.screen.width
     const H = app.screen.height
 
-    // Table zone — center
+    // Table zone — center, shifted slightly lower to close gap with hand
     this.tableZone = new TableZone()
-    this.tableZone.position.set(W / 2, H / 2 - 60)
+    this.tableZone.position.set(W / 2, H / 2 + 10)
     this.addChild(this.tableZone)
 
-    // Hand zone — bottom
+    // Hand zone — bottom, shifted slightly higher to close gap with table
     this.handZone = new HandZone()
-    this.handZone.position.set(W / 2, H - 80)
+    this.handZone.position.set(W / 2, H - 90)
     this.addChild(this.handZone)
 
     // Status text — top center
@@ -63,8 +63,8 @@ export class GameScene extends Container {
 
   /** Call whenever the renderer size changes to reposition all elements. */
   resize(W: number, H: number) {
-    this.tableZone.position.set(W / 2, H / 2 - 60)
-    this.handZone.position.set(W / 2, H - 80)
+    this.tableZone.position.set(W / 2, H / 2 + 10)
+    this.handZone.position.set(W / 2, H - 90)
     this.statusText.position.set(W / 2, 16)
     this.scoreText.position.set(W - 16, 16)
     // Player slots stay pinned top-left — no update needed
