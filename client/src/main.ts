@@ -4,6 +4,7 @@ import { createLocalState, applyServerMessage } from './state/client-state'
 import { GameScene } from './scenes/game'
 import type { ServerMessage } from './protocol'
 import { DEBUG } from './debug'
+import { playCardSound, playCaptureSound, playTablaSound } from './sounds'
 
 if (DEBUG) console.log('[tablic] script start')
 
@@ -168,12 +169,54 @@ gameoverBtn.addEventListener('click', () => {
   location.reload()
 })
 
-// --- Leave game button ---
+// --- Top game bar (leave + room code) ---
+const gameTopBar = document.getElementById('game-top-bar')!
 const btnLeave = document.getElementById('btn-leave')!
+const roomCodeBar = document.getElementById('room-code-bar')!
+const roomCodeText = document.getElementById('room-code-text')!
+const btnCopyRoom = document.getElementById('btn-copy-room')!
+let currentRoomId = ''
+
 btnLeave.addEventListener('click', () => {
   ws.clearReconnectInfo()
+  gameTopBar.classList.remove('visible')
   location.reload()
 })
+
+btnCopyRoom.addEventListener('click', async () => {
+  if (!currentRoomId) return
+  try {
+    await navigator.clipboard.writeText(currentRoomId)
+    btnCopyRoom.textContent = 'Copied!'
+    btnCopyRoom.classList.add('copied')
+    setTimeout(() => {
+      btnCopyRoom.textContent = 'Copy'
+      btnCopyRoom.classList.remove('copied')
+    }, 1500)
+  } catch {
+    // fallback: select text for manual copy
+    const el = document.createElement('input')
+    el.value = currentRoomId
+    document.body.appendChild(el)
+    el.select()
+    document.execCommand('copy')
+    document.body.removeChild(el)
+  }
+})
+
+// --- Toast ---
+const toast = document.getElementById('toast')!
+let toastTimer: ReturnType<typeof setTimeout> | null = null
+
+function showToast(msg: string, durationMs = 3000) {
+  toast.textContent = msg
+  toast.classList.add('show')
+  if (toastTimer) clearTimeout(toastTimer)
+  toastTimer = setTimeout(() => {
+    toast.classList.remove('show')
+    toastTimer = null
+  }, durationMs)
+}
 
 // --- WebSocket ---
 const ws = new WsClient((msg: ServerMessage) => {
@@ -188,6 +231,8 @@ const ws = new WsClient((msg: ServerMessage) => {
 function handleServerMessage(msg: ServerMessage) {
   switch (msg.type) {
     case 'ROOM_JOINED':
+      currentRoomId = msg.roomId
+      roomCodeText.textContent = msg.roomId
       lobbyStatus.textContent = `Joined room ${msg.roomId} (seat ${msg.seatIndex + 1}) — waiting for opponent…`
       ws.setReconnectInfo(msg.roomId, msg.reconnectToken, playerNameInput.value.trim())
       break
@@ -195,7 +240,17 @@ function handleServerMessage(msg: ServerMessage) {
     case 'GAME_STARTED':
       hideLobby()
       ensureGameScene()
-      btnLeave.classList.remove('hidden')
+      gameTopBar.classList.add('visible')
+      roomCodeBar.classList.remove('hidden')
+      break
+
+    case 'CARD_DISCARDED':
+      playCardSound()
+      break
+
+    case 'CAPTURE_MADE':
+      if (msg.wasTabla) playTablaSound()
+      else playCaptureSound()
       break
 
     case 'ROUND_END':
@@ -208,11 +263,15 @@ function handleServerMessage(msg: ServerMessage) {
       showGameOver(msg.winner.name, msg.players)
       break
 
+    case 'TURN_AUTO_SKIPPED':
+      showToast(`Auto-played for ${msg.playerName} (disconnected)`)
+      break
+
     case 'ERROR':
       if (msg.code === 'SESSION_EXPIRED') {
         ws.clearReconnectInfo()
         lobby.classList.remove('hidden')
-        btnLeave.classList.add('hidden')
+        gameTopBar.classList.remove('visible')
         lobbyStatus.textContent = msg.message
       } else {
         lobbyStatus.textContent = `Error: ${msg.message}`

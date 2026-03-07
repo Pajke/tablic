@@ -580,6 +580,11 @@ func (r *Room) autoSkipTurn(playerID string) {
 	}
 	card := cur.Hand[0] // copy before ApplyDiscard shifts the slice
 	log.Printf("[room %s] auto-skip: discarding %s for disconnected player %s", r.id, card.ID, r.names[playerID])
+	r.broadcast(protocol.MustMarshal(protocol.TurnAutoSkippedMsg{
+		Type:       "TURN_AUTO_SKIPPED",
+		PlayerID:   playerID,
+		PlayerName: r.names[playerID],
+	}))
 	r.broadcast(protocol.MustMarshal(protocol.CardPlayedMsg{
 		Type:     "CARD_PLAYED",
 		PlayerID: playerID,

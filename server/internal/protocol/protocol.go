@@ -148,6 +148,12 @@ type PongMsg struct {
 	Type string `json:"type"`
 }
 
+type TurnAutoSkippedMsg struct {
+	Type       string `json:"type"`
+	PlayerID   string `json:"playerId"`
+	PlayerName string `json:"playerName"`
+}
+
 // MustMarshal marshals v to JSON; panics on error (only for server-controlled structs).
 func MustMarshal(v any) []byte {
 	b, err := json.Marshal(v)

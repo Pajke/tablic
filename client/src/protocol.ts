@@ -163,6 +163,12 @@ export interface PongMsg {
   type: 'PONG'
 }
 
+export interface TurnAutoSkippedMsg {
+  type: 'TURN_AUTO_SKIPPED'
+  playerId: string
+  playerName: string
+}
+
 export type ServerMessage =
   | RoomJoinedMsg
   | PlayerJoinedMsg
@@ -178,3 +184,4 @@ export type ServerMessage =
   | PlayerDisconnectedMsg
   | ErrorMsg
   | PongMsg
+  | TurnAutoSkippedMsg
