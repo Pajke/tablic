@@ -115,7 +115,13 @@ export class GameScene extends Container {
     for (let i = 0; i < this.playerSlots.length && i < gs.players.length; i++) {
       const p = gs.players[i]
       const t = state.playerTablas[p.id] ?? 0
-      this.playerSlots[i].scoreText.text = t > 0 ? `${p.totalScore} pts  T:${t}` : `${p.totalScore} pts`
+      // Line 1: total score
+      // Line 2: captured cards + scoring points this round
+      const capInfo = p.capturedCount > 0
+        ? `${p.capturedCount} cards  ${p.scoringPoints}pt`
+        : 'no captures yet'
+      const tablaInfo = t > 0 ? `  T:${t}` : ''
+      this.playerSlots[i].scoreText.text = `${p.totalScore} pts  |  ${capInfo}${tablaInfo}`
     }
   }
 
@@ -135,14 +141,17 @@ export class GameScene extends Container {
     }
 
     // Status line
+    const dealsLabel = gs.dealsRemaining > 0
+      ? `  [${gs.dealsRemaining} deal${gs.dealsRemaining !== 1 ? 's' : ''} left]`
+      : '  [last deal]'
     if (gs.phase === 'game_over') {
       this.statusText.text = state.winner ? `Game Over — Winner: ${state.winner.name}` : 'Game Over'
     } else if (isMyTurn) {
-      this.statusText.text = 'Your turn — play a card'
+      this.statusText.text = `Your turn — play a card${dealsLabel}`
     } else if (currentPlayer && state.disconnectedPlayers.has(currentPlayer.id)) {
-      this.statusText.text = `Waiting for ${currentPlayer.name} to reconnect… (auto-skip in ~30s)`
+      this.statusText.text = `Waiting for ${currentPlayer.name} to reconnect… (auto-skip in ~30s)${dealsLabel}`
     } else {
-      this.statusText.text = `${currentPlayer?.name ?? '?'}'s turn`
+      this.statusText.text = `${currentPlayer?.name ?? '?'}'s turn${dealsLabel}`
     }
 
     // Team mode: show team scores in top-right text; individual mode: use player slots

@@ -238,7 +238,7 @@ func TestCheckWinCondition_NoWinner(t *testing.T) {
 	gs := twoPlayerGame()
 	gs.Players[0].TotalScore = 80
 	gs.Players[1].TotalScore = 100
-	if idx := gs.CheckWinCondition(); idx != -1 {
+	if idx := gs.CheckWinCondition(nil); idx != -1 {
 		t.Errorf("want -1 (no winner), got %d", idx)
 	}
 }
@@ -247,7 +247,7 @@ func TestCheckWinCondition_ExactlyAt101_Wins(t *testing.T) {
 	gs := twoPlayerGame()
 	gs.Players[0].TotalScore = 101
 	gs.Players[1].TotalScore = 0
-	if idx := gs.CheckWinCondition(); idx != 0 {
+	if idx := gs.CheckWinCondition(nil); idx != 0 {
 		t.Errorf("want winner index 0, got %d", idx)
 	}
 }
@@ -256,7 +256,7 @@ func TestCheckWinCondition_BelowThreshold_NoWinner(t *testing.T) {
 	gs := twoPlayerGame()
 	gs.Players[0].TotalScore = 100
 	gs.Players[1].TotalScore = 99
-	if idx := gs.CheckWinCondition(); idx != -1 {
+	if idx := gs.CheckWinCondition(nil); idx != -1 {
 		t.Errorf("want -1 (100 < 101 threshold), got %d", idx)
 	}
 }
@@ -265,7 +265,7 @@ func TestCheckWinCondition_TieBreak_HighestScoreWins(t *testing.T) {
 	gs := twoPlayerGame()
 	gs.Players[0].TotalScore = 115
 	gs.Players[1].TotalScore = 108
-	if idx := gs.CheckWinCondition(); idx != 0 {
+	if idx := gs.CheckWinCondition(nil); idx != 0 {
 		t.Errorf("want winner index 0 (115 > 108), got %d", idx)
 	}
 }

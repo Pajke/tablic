@@ -33,8 +33,12 @@ export function applyServerMessage(state: LocalState, msg: ServerMessage): Local
     case 'GAME_STARTED':
       return { ...state, gameState: msg.state, captureOptions: null, pendingRoundScores: null, winner: null, playerTablas: {}, disconnectedPlayers: new Set() }
 
-    case 'HAND_DEALT':
-      return { ...state, myHand: msg.cards }
+    case 'HAND_DEALT': {
+      const gs = state.gameState
+        ? { ...state.gameState, dealsRemaining: msg.dealsRemaining }
+        : null
+      return { ...state, myHand: msg.cards, gameState: gs }
+    }
 
     case 'TURN_START':
       if (!state.gameState) return state
@@ -75,9 +79,14 @@ export function applyServerMessage(state: LocalState, msg: ServerMessage): Local
       const playerTablas = msg.wasTabla
         ? { ...state.playerTablas, [msg.playerId]: (state.playerTablas[msg.playerId] ?? 0) + 1 }
         : state.playerTablas
+      const players = state.gameState.players.map((p) =>
+        p.id === msg.playerId
+          ? { ...p, capturedCount: msg.capturedCount, scoringPoints: msg.scoringPoints }
+          : p
+      )
       return {
         ...state,
-        gameState: { ...state.gameState, tableCards },
+        gameState: { ...state.gameState, tableCards, players },
         captureOptions: null,
         playerTablas,
       }

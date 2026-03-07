@@ -94,23 +94,31 @@ type RoundScore struct {
 
 // PublicPlayer is a sanitized player view sent to all clients (no Hand).
 type PublicPlayer struct {
-	ID          string `json:"id"`
-	Name        string `json:"name"`
-	SeatIndex   int    `json:"seatIndex"`
-	AvatarIndex int    `json:"avatarIndex"` // 1–6
-	TotalScore  int    `json:"totalScore"`
-	Tablas      int    `json:"tablas"`
+	ID            string `json:"id"`
+	Name          string `json:"name"`
+	SeatIndex     int    `json:"seatIndex"`
+	AvatarIndex   int    `json:"avatarIndex"`   // 1–6
+	TotalScore    int    `json:"totalScore"`
+	Tablas        int    `json:"tablas"`
+	CapturedCount int    `json:"capturedCount"` // total cards captured this round
+	ScoringPoints int    `json:"scoringPoints"` // card-point sum of captured cards this round
 }
 
 // ToPublic converts a Player to a PublicPlayer (no hand).
 func (p Player) ToPublic() PublicPlayer {
+	scoring := 0
+	for _, c := range p.Captured {
+		scoring += CardPoint(c)
+	}
 	return PublicPlayer{
-		ID:          p.ID,
-		Name:        p.Name,
-		SeatIndex:   p.SeatIndex,
-		AvatarIndex: p.AvatarIndex,
-		TotalScore:  p.TotalScore,
-		Tablas:      p.Tablas,
+		ID:            p.ID,
+		Name:          p.Name,
+		SeatIndex:     p.SeatIndex,
+		AvatarIndex:   p.AvatarIndex,
+		TotalScore:    p.TotalScore,
+		Tablas:        p.Tablas,
+		CapturedCount: len(p.Captured),
+		ScoringPoints: scoring,
 	}
 }
 
@@ -124,5 +132,6 @@ type ClientGameState struct {
 	LastCapturerIndex  *int           `json:"lastCapturerIndex"`
 	DealNumber         int            `json:"dealNumber"`
 	RoundNumber        int            `json:"roundNumber"`
-	TeamMode           bool           `json:"teamMode"` // true when 4-player 2v2
+	DealsRemaining     int            `json:"dealsRemaining"` // additional deals left in this round (0 = last deal)
+	TeamMode           bool           `json:"teamMode"`       // true when 4-player 2v2
 }

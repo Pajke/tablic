@@ -194,19 +194,24 @@ func (s *GameState) ApplyRoundScores(scores []RoundScore) {
 	s.RoundNumber++
 }
 
-// CheckWinCondition returns the winning player's index if any player has reached 101+ points,
-// or -1 if the game should continue. If multiple players hit 101+ in the same round,
-// the highest score wins (returns that player's index).
-func (s *GameState) CheckWinCondition() int {
+// CheckWinCondition returns the winning player's index if any player reaches 101+ points
+// after adding roundScores to their accumulated total, or -1 if the game should continue.
+// If multiple players hit 101+ in the same round, the highest combined score wins.
+func (s *GameState) CheckWinCondition(roundScores []RoundScore) int {
+	byID := make(map[string]int, len(roundScores))
+	for _, rs := range roundScores {
+		byID[rs.PlayerID] = rs.Total
+	}
 	maxScore := 0
 	winner := -1
 	anyOver101 := false
 	for i, p := range s.Players {
-		if p.TotalScore >= 101 {
+		total := p.TotalScore + byID[p.ID]
+		if total >= 101 {
 			anyOver101 = true
 		}
-		if p.TotalScore > maxScore {
-			maxScore = p.TotalScore
+		if total > maxScore {
+			maxScore = total
 			winner = i
 		}
 	}
@@ -222,6 +227,10 @@ func (s *GameState) ToClientState() ClientGameState {
 	for i, p := range s.Players {
 		players[i] = p.ToPublic()
 	}
+	dealsRemaining := 0
+	if len(s.Players) > 0 {
+		dealsRemaining = len(s.Deck) / (6 * len(s.Players))
+	}
 	return ClientGameState{
 		RoomID:             s.RoomID,
 		Phase:              s.Phase,
@@ -231,6 +240,7 @@ func (s *GameState) ToClientState() ClientGameState {
 		LastCapturerIndex:  s.LastCapturerIndex,
 		DealNumber:         s.DealNumber,
 		RoundNumber:        s.RoundNumber,
+		DealsRemaining:     dealsRemaining,
 		TeamMode:           len(s.Players) == 4,
 	}
 }

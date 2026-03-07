@@ -21,6 +21,8 @@ export interface PublicPlayer {
   avatarIndex: number // 1–6
   totalScore: number
   tablas: number
+  capturedCount: number  // total cards captured this round
+  scoringPoints: number  // card-point sum of captured cards this round
 }
 
 export type GamePhase = 'waiting' | 'playing' | 'round_end' | 'game_over'
@@ -34,6 +36,7 @@ export interface ClientGameState {
   lastCapturerIndex: number | null
   dealNumber: number
   roundNumber: number
+  dealsRemaining: number // additional deals left in this round after the current one
   teamMode: boolean
 }
 
@@ -101,6 +104,7 @@ export interface GameStartedMsg {
 export interface HandDealtMsg {
   type: 'HAND_DEALT'
   cards: Card[]
+  dealsRemaining: number
 }
 
 export interface TurnStartMsg {
@@ -124,6 +128,8 @@ export interface CaptureMadeMsg {
   playerId: string
   capturedCards: Card[]
   wasTabla: boolean
+  capturedCount: number  // capturer's total this round after this capture
+  scoringPoints: number  // capturer's scoring points this round after this capture
 }
 
 export interface CardDiscardedMsg {

@@ -284,11 +284,14 @@ func (r *Room) handlePlayCard(playerID, cardID string) {
 		if wasTabla {
 			log.Printf("[room %s] → TABLA!", r.id)
 		}
+		capCount, capPts := r.capStats(playerID)
 		r.broadcast(protocol.MustMarshal(protocol.CaptureMadeMsg{
 			Type:          "CAPTURE_MADE",
 			PlayerID:      playerID,
 			CapturedCards: captured,
 			WasTabla:      wasTabla,
+			CapturedCount: capCount,
+			ScoringPoints: capPts,
 		}))
 		r.advanceTurnOrDeal()
 
@@ -334,11 +337,14 @@ func (r *Room) handleChooseCapture(playerID string, optionIndex int) {
 	if wasTabla {
 		log.Printf("[room %s] → TABLA!", r.id)
 	}
+	capCount, capPts := r.capStats(playerID)
 	r.broadcast(protocol.MustMarshal(protocol.CaptureMadeMsg{
 		Type:          "CAPTURE_MADE",
 		PlayerID:      playerID,
 		CapturedCards: captured,
 		WasTabla:      wasTabla,
+		CapturedCount: capCount,
+		ScoringPoints: capPts,
 	}))
 	r.advanceTurnOrDeal()
 }
@@ -395,7 +401,7 @@ func (r *Room) advanceTurnOrDeal() {
 		r.storage.RecordRound(r.id, r.state.RoundNumber, scores)
 	}
 
-	if winnerIdx := r.state.CheckWinCondition(); winnerIdx >= 0 {
+	if winnerIdx := r.state.CheckWinCondition(scores); winnerIdx >= 0 {
 		r.state.Phase = game.PhaseGameOver
 		// Build finalPlayers with this round's scores applied (ApplyRoundScores is not called for the final round)
 		finalPlayers := make([]game.PublicPlayer, len(r.state.Players))
@@ -433,8 +439,9 @@ func (r *Room) advanceTurnOrDeal() {
 	}))
 	for _, p := range r.state.Players {
 		r.sendTo(p.ID, protocol.MustMarshal(protocol.HandDealtMsg{
-			Type:  "HAND_DEALT",
-			Cards: p.Hand,
+			Type:           "HAND_DEALT",
+			Cards:          p.Hand,
+			DealsRemaining: r.dealsRemaining(),
 		}))
 	}
 	r.broadcast(protocol.MustMarshal(protocol.TurnStartMsg{
@@ -503,8 +510,9 @@ func (r *Room) BroadcastGameStart() {
 	}))
 	for _, p := range r.state.Players {
 		r.sendTo(p.ID, protocol.MustMarshal(protocol.HandDealtMsg{
-			Type:  "HAND_DEALT",
-			Cards: p.Hand,
+			Type:           "HAND_DEALT",
+			Cards:          p.Hand,
+			DealsRemaining: r.dealsRemaining(),
 		}))
 	}
 	r.broadcast(protocol.MustMarshal(protocol.TurnStartMsg{
@@ -604,6 +612,27 @@ func (r *Room) Disconnect(playerID string) {
 		Type:     "PLAYER_DISCONNECTED",
 		PlayerID: playerID,
 	}))
+}
+
+// capStats returns the total captured card count and scoring-card points for a player (mu held).
+func (r *Room) capStats(playerID string) (count int, points int) {
+	for _, p := range r.state.Players {
+		if p.ID == playerID {
+			for _, c := range p.Captured {
+				points += game.CardPoint(c)
+			}
+			return len(p.Captured), points
+		}
+	}
+	return 0, 0
+}
+
+// dealsRemaining computes how many more 6-card deals can be made from the current deck (mu held).
+func (r *Room) dealsRemaining() int {
+	if len(r.state.Players) == 0 {
+		return 0
+	}
+	return len(r.state.Deck) / (6 * len(r.state.Players))
 }
 
 // --- helpers ---

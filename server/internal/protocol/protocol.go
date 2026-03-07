@@ -87,8 +87,9 @@ type GameStartedMsg struct {
 }
 
 type HandDealtMsg struct {
-	Type  string      `json:"type"`
-	Cards []game.Card `json:"cards"`
+	Type           string      `json:"type"`
+	Cards          []game.Card `json:"cards"`
+	DealsRemaining int         `json:"dealsRemaining"` // additional deals left after this one (0 = last deal)
 }
 
 type TurnStartMsg struct {
@@ -112,6 +113,8 @@ type CaptureMadeMsg struct {
 	PlayerID      string      `json:"playerId"`
 	CapturedCards []game.Card `json:"capturedCards"`
 	WasTabla      bool        `json:"wasTabla"`
+	CapturedCount int         `json:"capturedCount"` // capturer's total captured cards this round (after this capture)
+	ScoringPoints int         `json:"scoringPoints"` // capturer's scoring card points this round (after this capture)
 }
 
 type CardDiscardedMsg struct {
