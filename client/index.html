@@ -4,6 +4,7 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Tablić</title>
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
     <style>
       * { margin: 0; padding: 0; box-sizing: border-box; }
       body { background: #1a472a; overflow: hidden; }
@@ -44,6 +45,7 @@
       }
       #lobby-card button:active { background: #1b4332; }
       @media (hover: hover) { #lobby-card button:hover { background: #1b4332; } }
+      #lobby-card button:disabled { background: #999; cursor: default; opacity: 0.7; }
       #lobby-status { font-size: 0.9rem; color: #555; text-align: center; min-height: 1.2em; }
 
       /* Avatar picker */
@@ -241,6 +243,36 @@
       #btn-copy-room.copied { color: #6fcf97; }
       @media (hover: hover) { #btn-copy-room:hover { color: #fff; } }
 
+      /* Room list */
+      #room-list-section { display: none; flex-direction: column; gap: 0.4rem; }
+      #room-list-section.visible { display: flex; }
+      #room-list-section .section-label {
+        font-size: 0.8rem; color: #777; font-weight: bold;
+      }
+      .room-item {
+        display: flex; align-items: center; justify-content: space-between;
+        border: 1px solid #ddd; border-radius: 6px; padding: 0.45rem 0.6rem;
+        font-size: 0.9rem;
+      }
+      .room-item .room-meta { color: #555; font-size: 0.82rem; }
+      .room-item button {
+        flex: 0 0 auto; padding: 0.3rem 0.75rem;
+        border: none; border-radius: 5px;
+        background: #2d6a4f; color: #fff;
+        font-size: 0.82rem; cursor: pointer;
+        touch-action: manipulation;
+      }
+      .room-item button:active { background: #1b4332; }
+      @media (hover: hover) { .room-item button:hover { background: #1b4332; } }
+      #room-list-empty { font-size: 0.85rem; color: #aaa; text-align: center; padding: 0.3rem 0; }
+      #btn-refresh-rooms {
+        background: none; border: 1px solid #ccc; border-radius: 5px;
+        color: #666; font-size: 0.8rem; padding: 0.3rem 0.5rem; cursor: pointer;
+        align-self: flex-end; touch-action: manipulation;
+      }
+      #btn-refresh-rooms:active { background: #f0f0f0; }
+      @media (hover: hover) { #btn-refresh-rooms:hover { background: #f0f0f0; } }
+
       /* Toast */
       #toast {
         position: fixed; bottom: 100px; left: 50%;
@@ -278,6 +310,15 @@
           <button id="btn-join">Join Room</button>
         </div>
         <div id="lobby-status"></div>
+        <div id="room-list-section">
+          <div style="display:flex;align-items:center;justify-content:space-between">
+            <span class="section-label">Open rooms</span>
+            <button id="btn-refresh-rooms">↺ Refresh</button>
+          </div>
+          <div id="room-list">
+            <div id="room-list-empty">Loading…</div>
+          </div>
+        </div>
         <button id="btn-history" style="background:#555;margin-top:0.25rem">Game History</button>
       </div>
     </div>

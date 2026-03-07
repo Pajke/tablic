@@ -204,6 +204,51 @@ btnCopyRoom.addEventListener('click', async () => {
   }
 })
 
+// --- Room list ---
+const roomListSection = document.getElementById('room-list-section')!
+const roomListEl = document.getElementById('room-list')!
+const roomListEmpty = document.getElementById('room-list-empty')!
+
+type RoomInfo = { id: string; maxPlayers: number; players: number }
+
+async function loadRooms() {
+  try {
+    const res = await fetch('/api/rooms')
+    const rooms: RoomInfo[] = await res.json()
+    renderRooms(rooms)
+  } catch {
+    roomListEmpty.textContent = 'Could not load rooms.'
+  }
+}
+
+function renderRooms(rooms: RoomInfo[]) {
+  // Remove old items (keep the empty placeholder)
+  Array.from(roomListEl.querySelectorAll('.room-item')).forEach((el) => el.remove())
+  if (rooms.length === 0) {
+    roomListEmpty.textContent = 'No open rooms — create one!'
+    roomListEmpty.style.display = ''
+    roomListSection.classList.add('visible')
+    return
+  }
+  roomListEmpty.style.display = 'none'
+  roomListSection.classList.add('visible')
+  for (const room of rooms) {
+    const item = document.createElement('div')
+    item.className = 'room-item'
+    item.innerHTML =
+      `<span><strong>${room.id}</strong> <span class="room-meta">${room.players}/${room.maxPlayers} players</span></span>` +
+      `<button data-room-id="${room.id}">Join</button>`
+    item.querySelector('button')!.addEventListener('click', () => {
+      roomIdInput.value = room.id
+      btnJoin.click()
+    })
+    roomListEl.appendChild(item)
+  }
+}
+
+document.getElementById('btn-refresh-rooms')!.addEventListener('click', loadRooms)
+loadRooms()
+
 // --- Toast ---
 const toast = document.getElementById('toast')!
 let toastTimer: ReturnType<typeof setTimeout> | null = null
@@ -237,12 +282,30 @@ function handleServerMessage(msg: ServerMessage) {
       ws.setReconnectInfo(msg.roomId, msg.reconnectToken, playerNameInput.value.trim())
       break
 
+    case 'PLAYER_JOINED':
+      lobbyStatus.textContent = `${msg.player.name} joined — waiting for more players…`
+      break
+
     case 'GAME_STARTED':
       hideLobby()
       ensureGameScene()
       gameTopBar.classList.add('visible')
       roomCodeBar.classList.remove('hidden')
+      document.title = 'Tablić'
       break
+
+    case 'TURN_START': {
+      const gs = state.gameState
+      if (gs) {
+        const curPlayer = gs.players[msg.playerIndex]
+        if (curPlayer?.id === state.myPlayerId) {
+          document.title = '🃏 Your turn — Tablić'
+        } else {
+          document.title = 'Tablić'
+        }
+      }
+      break
+    }
 
     case 'CARD_DISCARDED':
       playCardSound()
@@ -260,6 +323,7 @@ function handleServerMessage(msg: ServerMessage) {
     case 'GAME_OVER':
       ws.clearReconnectInfo()
       scoreOverlay.classList.add('hidden')
+      document.title = 'Tablić'
       showGameOver(msg.winner.name, msg.players)
       break
 
@@ -268,6 +332,7 @@ function handleServerMessage(msg: ServerMessage) {
       break
 
     case 'ERROR':
+      setLobbyBusy(false)
       if (msg.code === 'SESSION_EXPIRED') {
         ws.clearReconnectInfo()
         lobby.classList.remove('hidden')
@@ -286,6 +351,11 @@ function ensureGameScene() {
     app.stage.addChild(gameScene)
   }
 }
+
+// Reposition scene elements whenever the canvas is resized.
+app.renderer.on('resize', (width: number, height: number) => {
+  if (gameScene) gameScene.resize(width, height)
+})
 
 function hideLobby() {
   lobby.classList.add('hidden')
@@ -341,11 +411,17 @@ function showGameOver(winnerName: string, players: import('./protocol').PublicPl
 if (DEBUG) console.log('[tablic] attaching button listeners')
 
 // --- Lobby buttons ---
+function setLobbyBusy(busy: boolean) {
+  ;(btnCreate as HTMLButtonElement).disabled = busy
+  ;(btnJoin as HTMLButtonElement).disabled = busy
+}
+
 btnCreate.addEventListener('click', () => {
   if (DEBUG) console.log('[tablic] create room clicked')
   const name = playerNameInput.value.trim()
   if (!name) { lobbyStatus.textContent = 'Enter your name first'; return }
   const maxPlayers = parseInt(maxPlayersSelect.value) as 2 | 4
+  setLobbyBusy(true)
   lobbyStatus.textContent = 'Connecting…'
   const url = buildWsUrlDefault()
   if (DEBUG) console.log('[tablic] connecting to', url)
@@ -360,6 +436,7 @@ btnJoin.addEventListener('click', () => {
   const roomId = roomIdInput.value.trim()
   if (!name) { lobbyStatus.textContent = 'Enter your name first'; return }
   if (!roomId) { lobbyStatus.textContent = 'Enter a room ID to join'; return }
+  setLobbyBusy(true)
   lobbyStatus.textContent = 'Connecting…'
   ws.connect(buildWsUrlDefault(), () => {
     ws.send({ type: 'JOIN_ROOM', roomId, playerName: name, avatarIndex: selectedAvatar })

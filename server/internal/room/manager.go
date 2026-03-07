@@ -9,6 +9,13 @@ import (
 	"tablic/server/internal/storage"
 )
 
+// RoomInfo holds public info about an open room available for joining.
+type RoomInfo struct {
+	ID         string `json:"id"`
+	MaxPlayers int    `json:"maxPlayers"`
+	Players    int    `json:"players"`
+}
+
 // Manager holds all active game rooms.
 type Manager struct {
 	mu      sync.RWMutex
@@ -26,11 +33,29 @@ func (m *Manager) Storage() *storage.Storage { return m.storage }
 // Create creates a new room and returns it.
 func (m *Manager) Create(maxPlayers int) *Room {
 	id := generateID()
-	r := newRoom(id, maxPlayers, m.storage)
+	r := newRoom(id, maxPlayers, m.storage, func() { m.Remove(id) })
 	m.mu.Lock()
 	m.rooms[id] = r
 	m.mu.Unlock()
 	return r
+}
+
+// List returns info about rooms that are open for joining (game not started, not full).
+func (m *Manager) List() []RoomInfo {
+	m.mu.RLock()
+	rooms := make([]*Room, 0, len(m.rooms))
+	for _, r := range m.rooms {
+		rooms = append(rooms, r)
+	}
+	m.mu.RUnlock()
+
+	out := make([]RoomInfo, 0, len(rooms))
+	for _, r := range rooms {
+		if info, ok := r.OpenInfo(); ok {
+			out = append(out, info)
+		}
+	}
+	return out
 }
 
 // Get retrieves a room by ID.

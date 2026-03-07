@@ -44,9 +44,12 @@ type Room struct {
 
 	// turnTimer fires if the current player stays disconnected for too long.
 	turnTimer *time.Timer
+
+	// onEmpty is called (without mu held) when all connections drop before the game starts.
+	onEmpty func()
 }
 
-func newRoom(id string, maxPlayers int, st *storage.Storage) *Room {
+func newRoom(id string, maxPlayers int, st *storage.Storage, onEmpty func()) *Room {
 	return &Room{
 		id:            id,
 		maxPlayers:    maxPlayers,
@@ -55,7 +58,22 @@ func newRoom(id string, maxPlayers int, st *storage.Storage) *Room {
 		names:         make(map[string]string),
 		avatarIndexes: make(map[string]int),
 		storage:       st,
+		onEmpty:       onEmpty,
 	}
+}
+
+// OpenInfo returns info about this room if it is open for joining (game not started, not full).
+func (r *Room) OpenInfo() (RoomInfo, bool) {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	if r.state != nil || len(r.conns) >= r.maxPlayers {
+		return RoomInfo{}, false
+	}
+	return RoomInfo{
+		ID:         r.id,
+		MaxPlayers: r.maxPlayers,
+		Players:    len(r.conns),
+	}, true
 }
 
 func (r *Room) ID() string { return r.id }
@@ -372,8 +390,9 @@ func (r *Room) advanceTurnOrDeal() {
 		r.logState("new deal")
 		for _, p := range r.state.Players {
 			r.sendTo(p.ID, protocol.MustMarshal(protocol.HandDealtMsg{
-				Type:  "HAND_DEALT",
-				Cards: p.Hand,
+				Type:           "HAND_DEALT",
+				Cards:          p.Hand,
+				DealsRemaining: r.dealsRemaining(),
 			}))
 		}
 		r.broadcast(protocol.MustMarshal(protocol.TurnStartMsg{
@@ -602,9 +621,9 @@ func (r *Room) autoSkipTurn(playerID string) {
 }
 
 // Disconnect signals a player's write goroutine to stop and notifies others.
+// If all connections drop before the game starts, onEmpty is called (without mu held).
 func (r *Room) Disconnect(playerID string) {
 	r.mu.Lock()
-	defer r.mu.Unlock()
 	log.Printf("[room %s] player disconnected: %s", r.id, r.names[playerID])
 	if pc, ok := r.conns[playerID]; ok && pc.done != nil {
 		select {
@@ -617,6 +636,28 @@ func (r *Room) Disconnect(playerID string) {
 		Type:     "PLAYER_DISCONNECTED",
 		PlayerID: playerID,
 	}))
+	cleanup := r.allDisconnectedPreGame()
+	r.mu.Unlock()
+
+	if cleanup {
+		r.onEmpty()
+	}
+}
+
+// allDisconnectedPreGame returns true if the game hasn't started and every connection is closed.
+// Must be called with mu held.
+func (r *Room) allDisconnectedPreGame() bool {
+	if r.state != nil || r.onEmpty == nil {
+		return false
+	}
+	for _, pc := range r.conns {
+		select {
+		case <-pc.done: // closed — this one is disconnected
+		default:
+			return false // still open
+		}
+	}
+	return true
 }
 
 // capStats returns the total captured card count and scoring-card points for a player (mu held).

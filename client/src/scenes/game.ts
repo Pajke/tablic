@@ -61,6 +61,15 @@ export class GameScene extends Container {
     this.addChild(this.scoreText)
   }
 
+  /** Call whenever the renderer size changes to reposition all elements. */
+  resize(W: number, H: number) {
+    this.tableZone.position.set(W / 2, H / 2 - 60)
+    this.handZone.position.set(W / 2, H - 80)
+    this.statusText.position.set(W / 2, 16)
+    this.scoreText.position.set(W - 16, 16)
+    // Player slots stay pinned top-left — no update needed
+  }
+
   private async buildPlayerSlots(players: PublicPlayer[]) {
     // Remove old slots
     for (const slot of this.playerSlots) this.removeChild(slot.container)

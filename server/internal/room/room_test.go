@@ -12,7 +12,7 @@ import (
 // setupRoom creates a Room with n fake players (no real WebSocket connections).
 // The playerConns have open write channels but nil *websocket.Conn.
 func setupRoom(n int) (*Room, []string) {
-	r := newRoom("test", n, nil)
+	r := newRoom("test", n, nil, nil)
 	ids := make([]string, n)
 	for i := 0; i < n; i++ {
 		id := fmt.Sprintf("p%d", i+1)
@@ -79,7 +79,7 @@ func setupPlayingRoom() (*Room, []string) {
 // --- Join ---
 
 func TestRoom_Join_AddsPlayerWithCorrectSeat(t *testing.T) {
-	r := newRoom("test", 2, nil)
+	r := newRoom("test", 2, nil, nil)
 	id, token, seat, err := r.Join("Alice", 1)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
@@ -97,7 +97,7 @@ func TestRoom_Join_AddsPlayerWithCorrectSeat(t *testing.T) {
 }
 
 func TestRoom_Join_RoomFull_ReturnsError(t *testing.T) {
-	r := newRoom("test", 2, nil)
+	r := newRoom("test", 2, nil, nil)
 	r.Join("Alice", 1) //nolint:errcheck
 	r.Join("Bob", 1)   //nolint:errcheck
 	_, _, _, err := r.Join("Charlie", 1)
