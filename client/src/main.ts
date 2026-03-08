@@ -274,6 +274,9 @@ const ws = new WsClient((msg: ServerMessage) => {
   }
 })
 
+// Attempt to resume a game session saved before a page refresh
+ws.tryResumeSession(buildWsUrlDefault())
+
 function handleServerMessage(msg: ServerMessage) {
   switch (msg.type) {
     case 'ROOM_JOINED':

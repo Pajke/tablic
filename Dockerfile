@@ -16,5 +16,5 @@ RUN go build -o /tablic .
 FROM alpine:latest
 WORKDIR /app
 COPY --from=builder /tablic .
-EXPOSE 8080
+EXPOSE 3579
 CMD ["./tablic"]

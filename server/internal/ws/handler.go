@@ -75,6 +75,10 @@ func (h *Handler) handshake(conn *websocket.Conn) (*room.Room, string, error) {
 	switch msgType {
 	case "CREATE_ROOM":
 		m := msg.(protocol.CreateRoomMsg)
+		if len(m.PlayerName) > 20 {
+			writeError(conn, "INVALID_PLAYER_NAME", "playerName must be at most 20 characters")
+			return nil, "", errBadHandshake
+		}
 		if m.MaxPlayers != 2 && m.MaxPlayers != 4 {
 			writeError(conn, "INVALID_MAX_PLAYERS", "maxPlayers must be 2 or 4")
 			return nil, "", errBadHandshake

@@ -92,6 +92,7 @@ export class HandZone extends Container {
     const idx = this.sprites.findIndex((s) => s.card.id === cardId)
     if (idx === -1) return
     const [sprite] = this.sprites.splice(idx, 1)
+    sprite.eventMode = 'none' // prevent stale clicks while animating away
 
     // Fly toward the table zone (upward + slight scale-down)
     gsap.to(sprite, {
@@ -112,9 +113,15 @@ export class HandZone extends Container {
 
   private removeAll() {
     for (const s of this.sprites) {
+      gsap.killTweensOf(s)
       this.removeChild(s)
       s.destroy()
     }
     this.sprites = []
+    // Remove any sprites still animating as display-list children (spliced by removeCard)
+    for (const child of [...this.children]) {
+      gsap.killTweensOf(child)
+      this.removeChild(child)
+    }
   }
 }

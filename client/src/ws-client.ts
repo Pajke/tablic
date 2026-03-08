@@ -4,6 +4,28 @@ import { DEBUG } from './debug'
 type MessageHandler = (msg: ServerMessage) => void
 
 const PING_INTERVAL_MS = 30_000
+const SESSION_KEY = 'tablic_reconnect'
+
+interface ReconnectInfo {
+  roomId: string
+  reconnectToken: string
+  playerName: string
+}
+
+function saveSession(info: ReconnectInfo) {
+  try { sessionStorage.setItem(SESSION_KEY, JSON.stringify(info)) } catch {}
+}
+
+function loadSession(): ReconnectInfo | null {
+  try {
+    const raw = sessionStorage.getItem(SESSION_KEY)
+    return raw ? JSON.parse(raw) : null
+  } catch { return null }
+}
+
+function clearSession() {
+  try { sessionStorage.removeItem(SESSION_KEY) } catch {}
+}
 
 export class WsClient {
   private ws: WebSocket | null = null
@@ -16,6 +38,13 @@ export class WsClient {
 
   constructor(onMessage: MessageHandler) {
     this.onMessage = onMessage
+    // Restore session surviving a page refresh
+    const saved = loadSession()
+    if (saved) {
+      this.roomId = saved.roomId
+      this.reconnectToken = saved.reconnectToken
+      this.playerName = saved.playerName
+    }
   }
 
   connect(url: string, onConnected?: () => void): void {
@@ -62,6 +91,7 @@ export class WsClient {
     this.roomId = roomId
     this.reconnectToken = reconnectToken
     this.playerName = playerName
+    saveSession({ roomId, reconnectToken, playerName })
   }
 
   /** Clear reconnect credentials so the next disconnect won't auto-rejoin. */
@@ -69,10 +99,26 @@ export class WsClient {
     this.reconnectToken = null
     this.roomId = null
     this.playerName = null
+    clearSession()
     if (this.reconnectTimer) {
       clearTimeout(this.reconnectTimer)
       this.reconnectTimer = null
     }
+  }
+
+  /** Try to resume a saved session immediately (call on page load). */
+  tryResumeSession(url: string): boolean {
+    if (!this.reconnectToken || !this.roomId) return false
+    if (DEBUG) console.log('[ws] resuming session for room', this.roomId)
+    this.connect(url, () => {
+      this.send({
+        type: 'JOIN_ROOM',
+        roomId: this.roomId!,
+        playerName: this.playerName ?? '',
+        reconnectToken: this.reconnectToken!,
+      })
+    })
+    return true
   }
 
   private startPing(): void {
