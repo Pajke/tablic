@@ -55,6 +55,7 @@ export interface CreateRoomMsg {
   playerName: string
   maxPlayers: 2 | 4
   avatarIndex: number // 1–6
+  vsAI?: boolean
 }
 
 export interface JoinRoomMsg {

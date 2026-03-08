@@ -79,6 +79,10 @@ func (h *Handler) handshake(conn *websocket.Conn) (*room.Room, string, error) {
 			writeError(conn, "INVALID_MAX_PLAYERS", "maxPlayers must be 2 or 4")
 			return nil, "", errBadHandshake
 		}
+		if m.VsAI && m.MaxPlayers != 2 {
+			writeError(conn, "INVALID_REQUEST", "AI opponent only supported for 2-player games")
+			return nil, "", errBadHandshake
+		}
 		rm = h.manager.Create(m.MaxPlayers)
 		pid, token, seat, joinErr := rm.Join(m.PlayerName, m.AvatarIndex)
 		if joinErr != nil {
@@ -86,8 +90,11 @@ func (h *Handler) handshake(conn *websocket.Conn) (*room.Room, string, error) {
 			return nil, "", joinErr
 		}
 		playerID = pid
-		log.Printf("[ws] CREATE_ROOM: player=%q seat=%d room=%s maxPlayers=%d token=%s",
-			m.PlayerName, seat, rm.ID(), m.MaxPlayers, token[:8])
+		if m.VsAI {
+			rm.AddBot()
+		}
+		log.Printf("[ws] CREATE_ROOM: player=%q seat=%d room=%s maxPlayers=%d vsAI=%v token=%s",
+			m.PlayerName, seat, rm.ID(), m.MaxPlayers, m.VsAI, token[:8])
 		writeMsg(conn, protocol.MustMarshal(protocol.RoomJoinedMsg{
 			Type: "ROOM_JOINED", RoomID: rm.ID(),
 			PlayerID: playerID, ReconnectToken: token, SeatIndex: seat,

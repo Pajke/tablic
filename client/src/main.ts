@@ -45,6 +45,7 @@ const roomIdInput = document.getElementById('room-id') as HTMLInputElement
 const maxPlayersSelect = document.getElementById('max-players') as HTMLSelectElement
 const btnCreate = document.getElementById('btn-create')!
 const btnJoin = document.getElementById('btn-join')!
+const btnVsAI = document.getElementById('btn-vs-ai')!
 
 // --- Avatar picker ---
 let selectedAvatar = 1
@@ -296,6 +297,7 @@ function handleServerMessage(msg: ServerMessage) {
       break
 
     case 'TURN_START': {
+      scoreOverlay.classList.add('hidden')
       const gs = state.gameState
       if (gs) {
         const curPlayer = gs.players[msg.playerIndex]
@@ -307,6 +309,10 @@ function handleServerMessage(msg: ServerMessage) {
       }
       break
     }
+
+    case 'HAND_DEALT':
+      scoreOverlay.classList.add('hidden')
+      break
 
     case 'CARD_DISCARDED':
       playCardSound()
@@ -415,6 +421,7 @@ if (DEBUG) console.log('[tablic] attaching button listeners')
 function setLobbyBusy(busy: boolean) {
   ;(btnCreate as HTMLButtonElement).disabled = busy
   ;(btnJoin as HTMLButtonElement).disabled = busy
+  ;(btnVsAI as HTMLButtonElement).disabled = busy
 }
 
 btnCreate.addEventListener('click', () => {
@@ -441,5 +448,15 @@ btnJoin.addEventListener('click', () => {
   lobbyStatus.textContent = 'Connecting…'
   ws.connect(buildWsUrlDefault(), () => {
     ws.send({ type: 'JOIN_ROOM', roomId, playerName: name, avatarIndex: selectedAvatar })
+  })
+})
+
+btnVsAI.addEventListener('click', () => {
+  const name = playerNameInput.value.trim()
+  if (!name) { lobbyStatus.textContent = 'Enter your name first'; return }
+  setLobbyBusy(true)
+  lobbyStatus.textContent = 'Connecting…'
+  ws.connect(buildWsUrlDefault(), () => {
+    ws.send({ type: 'CREATE_ROOM', playerName: name, maxPlayers: 2, avatarIndex: selectedAvatar, vsAI: true })
   })
 })

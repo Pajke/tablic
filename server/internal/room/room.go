@@ -23,6 +23,7 @@ type playerConn struct {
 	conn     *websocket.Conn
 	writeCh  chan []byte
 	done     chan struct{}
+	isBot    bool
 }
 
 // Room is an authoritative game room.
@@ -44,6 +45,9 @@ type Room struct {
 
 	// turnTimer fires if the current player stays disconnected for too long.
 	turnTimer *time.Timer
+
+	// botPlayerID is set when the room contains an AI player.
+	botPlayerID string
 
 	// onEmpty is called (without mu held) when all connections drop before the game starts.
 	onEmpty func()
@@ -378,6 +382,7 @@ func (r *Room) advanceTurnOrDeal() {
 			PlayerIndex: r.state.CurrentPlayerIndex,
 		}))
 		r.maybeStartTurnTimer()
+		r.maybeScheduleBotMove()
 		return
 	}
 
@@ -400,6 +405,7 @@ func (r *Room) advanceTurnOrDeal() {
 			PlayerIndex: r.state.CurrentPlayerIndex,
 		}))
 		r.maybeStartTurnTimer()
+		r.maybeScheduleBotMove()
 		return
 	}
 
@@ -441,6 +447,7 @@ func (r *Room) advanceTurnOrDeal() {
 			Winner:  winner,
 			Players: finalPlayers,
 		}))
+		r.shutdownBot()
 		return
 	}
 
@@ -468,6 +475,7 @@ func (r *Room) advanceTurnOrDeal() {
 		PlayerIndex: r.state.CurrentPlayerIndex,
 	}))
 	r.maybeStartTurnTimer()
+	r.maybeScheduleBotMove()
 }
 
 // --- messaging helpers (all called with mu held) ---
@@ -538,6 +546,7 @@ func (r *Room) BroadcastGameStart() {
 		Type:        "TURN_START",
 		PlayerIndex: r.state.CurrentPlayerIndex,
 	}))
+	r.maybeScheduleBotMove()
 }
 
 // SendErrorTo sends an ERROR message to a specific player (for external callers).
@@ -552,6 +561,9 @@ func (r *Room) isConnected(playerID string) bool {
 	pc, ok := r.conns[playerID]
 	if !ok {
 		return false
+	}
+	if pc.isBot {
+		return true
 	}
 	select {
 	case <-pc.done:
@@ -679,6 +691,138 @@ func (r *Room) dealsRemaining() int {
 		return 0
 	}
 	return len(r.state.Deck) / (6 * len(r.state.Players))
+}
+
+// --- bot methods ---
+
+// AddBot adds an AI player to the room as the second seat.
+// Must be called after the human player has joined and before AttachConn + StartGame.
+func (r *Room) AddBot() {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+
+	botID := "bot-" + generateID()
+	pc := &playerConn{
+		playerID: botID,
+		writeCh:  make(chan []byte, writeChannelSize),
+		done:     make(chan struct{}),
+		isBot:    true,
+	}
+	r.conns[botID] = pc
+	r.names[botID] = "Computer"
+	r.avatarIndexes[botID] = 1
+	r.seatOrder = append(r.seatOrder, botID)
+	r.botPlayerID = botID
+
+	// Drain the bot's write channel so it never fills up.
+	go func() {
+		for {
+			select {
+			case <-pc.writeCh:
+			case <-pc.done:
+				return
+			}
+		}
+	}()
+}
+
+// maybeScheduleBotMove schedules a bot move if it is the bot's turn. Must be called with mu held.
+func (r *Room) maybeScheduleBotMove() {
+	if r.botPlayerID == "" || r.state == nil {
+		return
+	}
+	cur := r.state.CurrentPlayer()
+	if cur.ID != r.botPlayerID {
+		return
+	}
+	botID := r.botPlayerID
+	time.AfterFunc(1200*time.Millisecond, func() {
+		r.mu.Lock()
+		defer r.mu.Unlock()
+		if r.state == nil || r.state.Phase == game.PhaseGameOver {
+			return
+		}
+		if r.state.CurrentPlayer().ID != botID {
+			return
+		}
+		r.doBotMove()
+	})
+}
+
+// doBotMove executes one bot turn. Must be called with mu held.
+func (r *Room) doBotMove() {
+	cur := r.state.CurrentPlayer()
+	card := r.botPickCard(*cur)
+	r.handlePlayCard(r.botPlayerID, card.ID)
+	// If handlePlayCard left a pending multi-option capture, pick the greedy best.
+	if r.pendingCapture != nil {
+		bestIdx, bestN := 0, 0
+		for i, opt := range r.pendingCapture {
+			n := 0
+			for _, g := range opt.Groups {
+				n += len(g)
+			}
+			if n > bestN {
+				bestN = n
+				bestIdx = i
+			}
+		}
+		r.handleChooseCapture(r.botPlayerID, bestIdx)
+	}
+}
+
+// botPickCard selects the best card for the bot to play using a greedy strategy.
+// Must be called with mu held.
+func (r *Room) botPickCard(p game.Player) game.Card {
+	bestCard := p.Hand[0]
+	bestN := -1
+	for _, card := range p.Hand {
+		result := game.ComputeCaptures(card, r.state.TableCards)
+		if len(result.Options) == 0 {
+			continue
+		}
+		maxN := 0
+		for _, opt := range result.Options {
+			n := 0
+			for _, g := range opt.Groups {
+				n += len(g)
+			}
+			if n > maxN {
+				maxN = n
+			}
+		}
+		if maxN > bestN {
+			bestN = maxN
+			bestCard = card
+		}
+	}
+	if bestN >= 0 {
+		return bestCard // found a capturing card
+	}
+	// No captures — discard the card with lowest point value.
+	discard := p.Hand[0]
+	lowestPts := game.CardPoint(discard)
+	for _, card := range p.Hand[1:] {
+		if pts := game.CardPoint(card); pts < lowestPts {
+			lowestPts = pts
+			discard = card
+		}
+	}
+	return discard
+}
+
+// shutdownBot closes the bot's done channel to stop its drain goroutine. Must be called with mu held.
+func (r *Room) shutdownBot() {
+	if r.botPlayerID == "" {
+		return
+	}
+	if pc, ok := r.conns[r.botPlayerID]; ok {
+		select {
+		case <-pc.done:
+		default:
+			close(pc.done)
+		}
+	}
 }
 
 // --- helpers ---

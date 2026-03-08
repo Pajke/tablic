@@ -14,6 +14,7 @@ type CreateRoomMsg struct {
 	PlayerName  string `json:"playerName"`
 	MaxPlayers  int    `json:"maxPlayers"` // 2 or 4
 	AvatarIndex int    `json:"avatarIndex"` // 1–6
+	VsAI        bool   `json:"vsAI,omitempty"`
 }
 
 type JoinRoomMsg struct {
